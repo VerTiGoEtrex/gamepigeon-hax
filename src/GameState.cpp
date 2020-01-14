@@ -74,7 +74,16 @@ const int GameState::getHeuristicValue() const {
   // TODO include relative "value" of colors. Cells closest to enemy are worth
   // more than further. Cells compeltely contained by our blob are the same as
   // "captured."
-  return getPlayerSize() - getComputerSize();
+  auto balance = getPlayerSize() - getComputerSize();
+  if (isTerminal()) {
+    if (balance > 0)
+      return 10000;
+    else if (balance < 0)
+      return -10000;
+    else
+      return 0;
+  }
+  return balance;
 }
 
 const bool GameState::isTerminal() const {
@@ -98,6 +107,8 @@ const int GameState::getComputerSize() const {
   }
   return size;
 }
+
+const bool GameState::isPlayersTurn() const { return playersTurn; }
 
 ostream &operator<<(ostream &os, const GameState &state) {
   os << "Player to move? " << state.playersTurn << endl;

@@ -34,6 +34,7 @@ public:
   const bool isTerminal() const;
   const int getPlayerSize() const;
   const int getComputerSize() const;
+  const bool isPlayersTurn() const;
 
   static int resolveCoord(int row, int col) { return row * BOARD_WIDTH + col; }
   static pair<int, int> unresolveCoord(int coord) {

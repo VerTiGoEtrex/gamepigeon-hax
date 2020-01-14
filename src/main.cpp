@@ -1,4 +1,5 @@
 #include "GameState.hpp"
+#include "negamax.hpp"
 #include <iostream>
 
 using std::cin;
@@ -7,6 +8,15 @@ using std::endl;
 using std::string;
 using std::to_string;
 using std::tolower;
+using std::tuple;
+
+// Functor to compare by the Mth element
+template <int M, template <typename> class F = std::less> struct TupleCompare {
+  template <typename T> bool operator()(T const &t1, T const &t2) {
+    return F<typename std::tuple_element<M, T>::type>()(std::get<M>(t1),
+                                                        std::get<M>(t2));
+  }
+};
 
 void dfs(int row, int col, board_c &board, board_b &blob, Color c) {
   if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH)
@@ -67,11 +77,16 @@ int main() {
        << endl;
   cout << state << endl;
 
-  cout << "And here are your next possible moves." << endl << endl;
-  auto moves = state.genMoves();
-  for (auto move : moves) {
-    cout << "Color " << colorToChar(move.first) << endl;
-    cout << move.second << endl;
+  // cout << "Please enter a maximum depth to search: ";
+  // int maxDepth;
+  // cin >> maxDepth;
+
+  for (int depth = 1;; ++depth) {
+    // Begin negamax lolercopters
+    cout << "Searching depth " << depth << "..." << endl;
+    auto [score, move, newState] = negamax(state, depth);
+    cout << "Color " << move << " yields score of " << score
+         << " and a board of " << state << endl;
   }
   return 0;
 }
