@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.tpp": "cpp",
+        "vector": "cpp",
+        "array": "cpp",
+        "iterator": "cpp",
+        "utility": "cpp",
+        "iosfwd": "cpp",
+        "iostream": "cpp"
+    },
+    "terminal.integrated.shell.windows": "cmd.exe"
+}
