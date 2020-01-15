@@ -20,7 +20,10 @@
 // value to the other player or in other words, the child with the maximum
 // inverse "other player" value, or "-negamax"
 vector<tuple<int, Color, GameState>> negamax(GameState &state, int depth,
-                                             int maxDepth) {
+                                             int maxDepth, int alpha, int beta,
+                                             TimeOut &timeout) {
+  if (!timeout.keepWorking())
+    return {};
   if (depth == 0 || state.isTerminal()) {
     // if player's turn, this node is worth the heuristic, else it's worth
     // inverse (to the computer)
@@ -34,7 +37,13 @@ vector<tuple<int, Color, GameState>> negamax(GameState &state, int depth,
   auto bestState = state;
   vector<tuple<int, Color, GameState>> bestChain;
   for (auto move : state.genMoves()) {
-    auto resultingChain = negamax(move.second, depth - 1, maxDepth);
+    auto resultingChain =
+        negamax(move.second, depth - 1, maxDepth, -beta, -alpha, timeout);
+    if (resultingChain.empty()) {
+      if (timeout.keepWorking())
+        throw "wut?";
+      return {};
+    }
     auto [resultingValue, moveTaken, resultingState] = resultingChain.back();
     // Our best move is whatever minimizes the other player's score
     auto ourValueForMove = -resultingValue;
@@ -44,7 +53,12 @@ vector<tuple<int, Color, GameState>> negamax(GameState &state, int depth,
       bestState = move.second;
       bestChain = resultingChain;
     }
+    alpha = max(alpha, bestValue);
+    if (alpha >= beta)
+      break;
   }
   bestChain.push_back({bestValue, bestMove, bestState});
+  if (!timeout.keepWorking())
+    return {};
   return bestChain;
 }

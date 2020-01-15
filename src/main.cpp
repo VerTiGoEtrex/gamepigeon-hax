@@ -1,5 +1,8 @@
 #include "GameState.hpp"
 #include "negamax.hpp"
+#include "timeout.hpp"
+#include <chrono>
+#include <future>
 #include <iostream>
 #include <random>
 
@@ -12,14 +15,6 @@ using std::to_string;
 using std::tolower;
 using std::tuple;
 using std::uniform_int_distribution;
-
-// Functor to compare by the Mth element
-template <int M, template <typename> class F = std::less> struct TupleCompare {
-  template <typename T> bool operator()(T const &t1, T const &t2) {
-    return F<typename std::tuple_element<M, T>::type>()(std::get<M>(t1),
-                                                        std::get<M>(t2));
-  }
-};
 
 void dfs(int row, int col, board_c &board, board_b &blob, Color c) {
   if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH)
@@ -36,14 +31,22 @@ void dfs(int row, int col, board_c &board, board_b &blob, Color c) {
   dfs(row, col - 1, board, blob, c);
 }
 
-Color computeBestMove(GameState state, int maxDepth) {
+Color computeBestMove(GameState state, int maxDepth, TimeOut timeout) {
   cout << "------------------------\n";
   cout << rang::style::bold << "Searching depth " << maxDepth << "..."
        << rang::style::reset << endl;
   cout << "-- current board --" << endl;
   cout << state << endl;
+
+  auto f = std::async(std::launch::async, negamax, std::ref(state), maxDepth,
+                      maxDepth, numeric_limits<int>::min() + 1,
+                      numeric_limits<int>::max(), std::ref(timeout));
   // Best chain of moves for current player in reverse order
-  auto bestChain = negamax(state, maxDepth, maxDepth);
+  auto bestChain = f.get();
+  if (bestChain.empty()) {
+    cout << "no moves. Probably timed out." << endl;
+    return SENTINAL;
+  }
   for (auto it = bestChain.rbegin(); it != bestChain.rend() - 1; ++it) {
     auto [thisScore, thisMove, thisNewState] = *it;
     cout << "-- after move " << thisMove << distance(bestChain.rbegin(), it)
@@ -150,14 +153,22 @@ int main() {
     //        << move.second << endl;
     // }
 
-    const int MAX_DEPTH = 10;
+    const int MAX_DEPTH = 12;
 
     while (!state.isTerminal()) {
       if (!playVsComputer || !state.isPlayersTurn()) {
-        // for (int depth = 1; depth <= MAX_DEPTH; ++depth) {
-        //   auto bestMove = computeBestMove(state, depth);
-        // }
-        auto bestMove = computeBestMove(state, MAX_DEPTH);
+        Color bestMove = SENTINAL;
+        for (int depth = 1;; ++depth) {
+          auto thisMove =
+              computeBestMove(state, depth, TimeOut(std::chrono::seconds(3)));
+          if (thisMove == SENTINAL)
+            break;
+          bestMove = thisMove;
+        }
+        if (bestMove == SENTINAL)
+          throw "could not calculate best move in time!";
+
+        // auto bestMove = computeBestMove(state, MAX_DEPTH);
         if (playVsComputer) {
           cout << "-- previous board --" << endl << state << endl;
           state = state.applyMove(bestMove);
@@ -198,6 +209,9 @@ int main() {
     }
     return 0;
   } catch (string s) {
+    std::cerr << s << endl;
+    return 1;
+  } catch (const char *s) {
     std::cerr << s << endl;
     return 1;
   }
