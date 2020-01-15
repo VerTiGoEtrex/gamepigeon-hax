@@ -16,7 +16,7 @@ run: all
 	./$(BIN)/$(EXECUTABLE)
 
 $(BIN)/$(EXECUTABLE): $(SRC)/*.cpp
-	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -L$(LIB) $^ -o $@ $(LIBRARIES)
+	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -L$(LIB) -lprofiler $^ -o $@ $(LIBRARIES)
 
 clean:
 	-rm -rf $(BIN)/*

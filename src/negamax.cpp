@@ -24,19 +24,30 @@ vector<tuple<int, Color, GameState>> negamax(GameState &state, int depth,
                                              TimeOut &timeout) {
   if (!timeout.keepWorking())
     return {};
+  auto thisHeuristic = state.getHeuristicValue();
   if (depth == 0 || state.isTerminal()) {
     // if player's turn, this node is worth the heuristic, else it's worth
     // inverse (to the computer)
-    return {{(maxDepth * state.getHeuristicValue() *
-              (state.isPlayersTurn() ? 1 : -1)) -
-                 depth,
-             SENTINAL, state}};
+    return {
+        {(maxDepth * thisHeuristic * (state.isPlayersTurn() ? 1 : -1)) - depth,
+         SENTINAL, state}};
   }
   int bestValue = numeric_limits<int>::min();
   auto bestMove = SENTINAL;
   auto bestState = state;
   vector<tuple<int, Color, GameState>> bestChain;
-  for (auto move : state.genMoves()) {
+  auto moves = state.genMoves();
+
+  if (state.isPlayersTurn()) {
+    std::sort(moves.begin(), moves.end(), [](const auto lhs, const auto rhs) {
+      return lhs.second.getHeuristicValue() > rhs.second.getHeuristicValue();
+    });
+  } else {
+    std::sort(moves.begin(), moves.end(), [](const auto lhs, const auto rhs) {
+      return lhs.second.getHeuristicValue() < rhs.second.getHeuristicValue();
+    });
+  }
+  for (auto move : moves) {
     auto resultingChain =
         negamax(move.second, depth - 1, maxDepth, -beta, -alpha, timeout);
     if (resultingChain.empty()) {
