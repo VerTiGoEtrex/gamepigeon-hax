@@ -22,7 +22,8 @@ static char colorToChar(Color c) {
   case BLACK:
     return 'L';
   default:
-    throw "invalid color";
+    // TODO throw again and fix other code
+    return 'E';
   }
 }
 
@@ -60,7 +61,7 @@ static rang::bg colorToTermBg(Color c) {
   case BLACK:
     return rang::bg::black;
   default:
-    throw "invalid color";
+    return rang::bg::cyan;
   }
 }
 

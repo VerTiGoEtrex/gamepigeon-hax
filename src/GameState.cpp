@@ -36,6 +36,16 @@ const vector<pair<Color, GameState>> GameState::genMoves() const {
   vector<pair<Color, GameState>> ret;
 
   // Determine possible colors for either player to change to
+  vector<Color> possibleColors = getPossibleColors();
+
+  // Create a new gamestate based on taking these moves
+  for (Color c : possibleColors) {
+    ret.push_back({c, applyMove(c)});
+  }
+  return ret;
+}
+
+vector<Color> GameState::getPossibleColors() const {
   vector<Color> possibleColors;
   for (int i = 0; i < Color::SENTINAL; ++i) {
     Color c = static_cast<Color>(i);
@@ -43,31 +53,29 @@ const vector<pair<Color, GameState>> GameState::genMoves() const {
       possibleColors.push_back(c);
     }
   }
+  return possibleColors;
+}
 
-  // Create a new gamestate based on taking these moves
-  for (Color c : possibleColors) {
-    // get a copy of the current gamestate
-    GameState newState = *this;
-    auto &currColor =
-        playersTurn ? newState.playerColor : newState.computerColor;
-    auto &currBlob = playersTurn ? newState.playerBlob : newState.computerBlob;
+GameState GameState::applyMove(Color c) const {
+  // get a copy of the current gamestate
+  GameState newState = *this;
+  auto &currColor = playersTurn ? newState.playerColor : newState.computerColor;
+  auto &currBlob = playersTurn ? newState.playerBlob : newState.computerBlob;
 
-    // update next state based on this "move"
-    newState.playersTurn = !newState.playersTurn;
-    currColor = c;
+  // update next state based on this "move"
+  newState.playersTurn = !newState.playersTurn;
+  currColor = c;
 
-    for (int i = 0; i < BOARD_SIZE; ++i) {
-      // find something already part of the blob
-      if (currBlob[i]) {
-        // dfs from that point on the blob and quit
-        auto [row, col] = unresolveCoord(i);
-        dfs(row, col, currBlob, c, newState.board);
-        break;
-      }
+  for (int i = 0; i < BOARD_SIZE; ++i) {
+    // find something already part of the blob
+    if (currBlob[i]) {
+      // dfs from that point on the blob and quit
+      auto [row, col] = unresolveCoord(i);
+      dfs(row, col, currBlob, c, newState.board);
+      break;
     }
-    ret.push_back({c, newState});
   }
-  return ret;
+  return newState;
 }
 
 const int GameState::getHeuristicValue() const {
@@ -77,11 +85,9 @@ const int GameState::getHeuristicValue() const {
   auto balance = getPlayerSize() - getComputerSize();
   if (isTerminal()) {
     if (balance > 0)
-      return 10000;
+      balance += 10000;
     else if (balance < 0)
-      return -10000;
-    else
-      return 0;
+      balance -= 10000;
   }
   return balance;
 }
@@ -111,13 +117,17 @@ const int GameState::getComputerSize() const {
 const bool GameState::isPlayersTurn() const { return playersTurn; }
 
 ostream &operator<<(ostream &os, const GameState &state) {
-  os << "Player to move? " << state.playersTurn << endl;
-  os << "Current player value " << state.getHeuristicValue() << endl;
-  os << "Player: " << state.getPlayerSize()
-     << " Computer: " << state.getComputerSize() << endl;
+  os << "Player to move? " << (state.playersTurn ? 'A' : 'B') << endl;
+  os << "Current player value " << state.getHeuristicValue() << "("
+     << state.getPlayerSize() << "-" << state.getComputerSize() << ")" << endl;
   for (auto row = 0; row < BOARD_HEIGHT; ++row) {
     for (auto col = 0; col < BOARD_WIDTH; ++col) {
-      os << state.board[GameState::resolveCoord(row, col)];
+      auto resolved = GameState::resolveCoord(row, col);
+      os << state.board[resolved]
+         << (state.playerBlob[resolved]
+                 ? 'X'
+                 : state.computerBlob[resolved] ? 'O' : '.')
+         << rang::bg::reset;
     }
     os << endl;
   }

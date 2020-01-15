@@ -30,6 +30,8 @@ public:
   ~GameState();
 
   const vector<pair<Color, GameState>> genMoves() const;
+  vector<Color> getPossibleColors() const;
+  GameState applyMove(Color c) const;
   const int getHeuristicValue() const;
   const bool isTerminal() const;
   const int getPlayerSize() const;
