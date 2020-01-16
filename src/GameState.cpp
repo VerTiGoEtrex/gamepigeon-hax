@@ -1,35 +1,12 @@
-#include "GameState.hpp"
-#include "Colors.hpp"
-#include "Constants.hpp"
-#include "rang.hpp"
-#include <algorithm>
+#include "gamestate.hpp"
 
-GameState::GameState(board_c board, bool playersTurn, Color playerColor,
-                     Color computerColor, board_b playerBlob,
-                     board_b computerBlob)
+GameState::GameState(array<board_t, NUM_COLORS> board, bool playersTurn,
+                     Color playerColor, Color computerColor, board_t playerBlob,
+                     board_t computerBlob)
     : board(board), playersTurn(playersTurn), playerColor(playerColor),
       computerColor(computerColor), playerBlob(playerBlob),
       computerBlob(computerBlob) {}
 GameState::~GameState() {}
-
-void dfs(int row, int col, board_b &blob, Color newColor, board_c &board) {
-  if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH)
-    return;
-  // This is a valid board coordinate, now let's check if it's the new color
-  auto resolvedCoord = GameState::resolveCoord(row, col);
-  if (board[resolvedCoord] == newColor != blob[resolvedCoord]) {
-    // coordinate is either the new color and not part of the blob yet, or it's
-    // part of the blob, but not painted yet. else, coordinate is both new color
-    // and blobbed (already painted) or coordinate is not the new color, and is
-    // also not blobbed (not to be touched)
-    blob[resolvedCoord] = true;
-    board[resolvedCoord] = newColor;
-    dfs(row + 1, col, blob, newColor, board);
-    dfs(row - 1, col, blob, newColor, board);
-    dfs(row, col + 1, blob, newColor, board);
-    dfs(row, col - 1, blob, newColor, board);
-  }
-}
 
 const vector<pair<Color, GameState>> GameState::genMoves() const {
   // These are all of the possible resulting game states from this point.
@@ -47,7 +24,7 @@ const vector<pair<Color, GameState>> GameState::genMoves() const {
 
 vector<Color> GameState::getPossibleColors() const {
   vector<Color> possibleColors;
-  for (int i = 0; i < Color::SENTINAL; ++i) {
+  for (int i = 0; i < NUM_COLORS; ++i) {
     Color c = static_cast<Color>(i);
     if (c != playerColor && c != computerColor) {
       possibleColors.push_back(c);
@@ -61,29 +38,21 @@ GameState GameState::applyMove(Color c) const {
   GameState newState = *this;
   auto &currColor = playersTurn ? newState.playerColor : newState.computerColor;
   auto &currBlob = playersTurn ? newState.playerBlob : newState.computerBlob;
+  auto &otherBlob = playersTurn ? newState.computerBlob : newState.playerBlob;
 
   // update next state based on this "move"
   newState.playersTurn = !newState.playersTurn;
   currColor = c;
-
-  for (int i = 0; i < BOARD_SIZE; ++i) {
-    // find something already part of the blob
-    if (currBlob[i]) {
-      // dfs from that point on the blob and quit
-      auto [row, col] = unresolveCoord(i);
-      dfs(row, col, currBlob, c, newState.board);
-      break;
-    }
-  }
+  currBlob = board::expandBlob(currBlob, newState.board[c] & ~otherBlob);
   return newState;
 }
 
-const int GameState::getHeuristicValue() const {
+int GameState::getHeuristicValue() const {
   // TODO include relative "value" of colors. Cells closest to enemy are worth
-  // more than further. Cells compeltely contained by our blob are the same as
+  // more than further. Cells completely contained by our blob are the same as
   // "captured."
   auto balance = getPlayerSize() - getComputerSize();
-  if (isTerminal()) {
+  if (isTerminal() || getPlayerSize() + getComputerSize() >= BOARD_SIZE / 2) {
     if (balance > 0)
       balance += 10000;
     else if (balance < 0)
@@ -92,42 +61,47 @@ const int GameState::getHeuristicValue() const {
   return balance;
 }
 
-const bool GameState::isTerminal() const {
+bool GameState::isTerminal() const {
   return getPlayerSize() + getComputerSize() == BOARD_WIDTH * BOARD_HEIGHT;
 }
 
-const int GameState::getPlayerSize() const {
-  int size = 0;
-  for (int i = 0; i < BOARD_SIZE; ++i) {
-    if (playerBlob[i])
-      ++size;
-  }
-  return size;
+int GameState::getPlayerSize() const { return __builtin_popcountl(playerBlob); }
+
+int GameState::getComputerSize() const {
+  return __builtin_popcountl(computerBlob);
 }
 
-const int GameState::getComputerSize() const {
-  int size = 0;
-  for (int i = 0; i < BOARD_SIZE; ++i) {
-    if (computerBlob[i])
-      ++size;
-  }
-  return size;
-}
-
-const bool GameState::isPlayersTurn() const { return playersTurn; }
+bool GameState::isPlayersTurn() const { return playersTurn; }
 
 ostream &operator<<(ostream &os, const GameState &state) {
-  os << "Player to move? " << (state.playersTurn ? 'A' : 'B') << endl;
-  os << "Current player value " << state.getHeuristicValue() << "("
-     << state.getPlayerSize() << "-" << state.getComputerSize() << ")" << endl;
+  // Print the scores
+  if (state.playersTurn)
+    os << rang::style::bold;
+  os << "A" << std::setw(2) << std::right << state.getPlayerSize()
+     << rang::style::reset;
+  if (!state.playersTurn)
+    os << rang::style::bold;
+  os << " B" << std::setw(2) << std::right << state.getComputerSize()
+     << rang::style::reset;
+  os << endl;
+  os << "H " << state.getHeuristicValue() << endl;
   for (auto row = 0; row < BOARD_HEIGHT; ++row) {
     for (auto col = 0; col < BOARD_WIDTH; ++col) {
-      auto resolved = GameState::resolveCoord(row, col);
-      os << state.board[resolved]
-         << (state.playerBlob[resolved]
-                 ? 'X'
-                 : state.computerBlob[resolved] ? 'O' : '.')
-         << rang::bg::reset;
+      board_t mask = 1ul << (row * BOARD_WIDTH + col);
+      static_assert(sizeof(mask) == 8);
+      Color color = Color::NONE;
+      char c = '#';
+      if (state.playerBlob & mask) {
+        color = state.playerColor;
+        c = 'X';
+      } else if (state.computerBlob & mask) {
+        color = state.computerColor;
+        c = 'O';
+      } else {
+        color = board::getColor(state.board, mask);
+        c = '.';
+      }
+      os << colorToTermBg(color) << c << rang::bg::reset;
     }
     os << endl;
   }

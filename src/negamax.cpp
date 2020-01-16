@@ -30,10 +30,10 @@ vector<tuple<int, Color, GameState>> negamax(GameState &state, int depth,
     // inverse (to the computer)
     return {
         {(maxDepth * thisHeuristic * (state.isPlayersTurn() ? 1 : -1)) - depth,
-         SENTINAL, state}};
+         NONE, state}};
   }
   int bestValue = numeric_limits<int>::min();
-  auto bestMove = SENTINAL;
+  auto bestMove = NONE;
   auto bestState = state;
   vector<tuple<int, Color, GameState>> bestChain;
   auto moves = state.genMoves();

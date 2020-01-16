@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameState.hpp"
+#include "gamestate.hpp"
 #include "timeout.hpp"
 #include <numeric>
 

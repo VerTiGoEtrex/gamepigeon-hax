@@ -5,64 +5,18 @@
 
 using std::ostream;
 
-enum Color { RED, GREEN, YELLOW, BLUE, PURPLE, BLACK, SENTINAL };
+enum Color {
+  RED,
+  GREEN,
+  YELLOW,
+  BLUE,
+  PURPLE,
+  BLACK,
+  NONE = -1,
+};
+const int NUM_COLORS = Color::BLACK + 1;
+static_assert(NUM_COLORS == 6);
 
-static char colorToChar(Color c) {
-  switch (c) {
-  case RED:
-    return 'R';
-  case GREEN:
-    return 'G';
-  case YELLOW:
-    return 'Y';
-  case BLUE:
-    return 'B';
-  case PURPLE:
-    return 'P';
-  case BLACK:
-    return 'L';
-  default:
-    // TODO throw again and fix other code
-    return 'E';
-  }
-}
-
-static Color charToColor(char c) {
-  switch (c) {
-  case 'R':
-    return RED;
-  case 'G':
-    return GREEN;
-  case 'Y':
-    return YELLOW;
-  case 'B':
-    return BLUE;
-  case 'P':
-    return PURPLE;
-  case 'L':
-    return BLACK;
-  default:
-    throw "invalid color";
-  }
-}
-
-static rang::bg colorToTermBg(Color c) {
-  switch (c) {
-  case RED:
-    return rang::bg::red;
-  case GREEN:
-    return rang::bg::green;
-  case YELLOW:
-    return rang::bg::yellow;
-  case BLUE:
-    return rang::bg::blue;
-  case PURPLE:
-    return rang::bg::magenta;
-  case BLACK:
-    return rang::bg::black;
-  default:
-    return rang::bg::cyan;
-  }
-}
-
+Color charToColor(char c);
+rang::bg colorToTermBg(Color c);
 ostream &operator<<(ostream &os, const Color &c);

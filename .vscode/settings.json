@@ -75,7 +75,8 @@
         "*.tcc": "cpp",
         "memory_resource": "cpp",
         "cinttypes": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "__functional_03": "cpp"
     },
     "terminal.integrated.shell.windows": "cmd.exe"
 }

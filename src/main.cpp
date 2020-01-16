@@ -1,4 +1,4 @@
-#include "GameState.hpp"
+#include "gamestate.hpp"
 #include "negamax.hpp"
 #include "timeout.hpp"
 #include <chrono>
@@ -6,6 +6,7 @@
 #include <iostream>
 #include <random>
 
+using std::cerr;
 using std::cin;
 using std::cout;
 using std::default_random_engine;
@@ -15,21 +16,6 @@ using std::to_string;
 using std::tolower;
 using std::tuple;
 using std::uniform_int_distribution;
-
-void dfs(int row, int col, board_c &board, board_b &blob, Color c) {
-  if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH)
-    return;
-  auto resolvedCoord = GameState::resolveCoord(row, col);
-  if (board[resolvedCoord] != c)
-    return;
-  if (blob[resolvedCoord])
-    return;
-  blob[resolvedCoord] = true;
-  dfs(row + 1, col, board, blob, c);
-  dfs(row - 1, col, board, blob, c);
-  dfs(row, col + 1, board, blob, c);
-  dfs(row, col - 1, board, blob, c);
-}
 
 Color computeBestMove(GameState state, int maxDepth, TimeOut timeout) {
   cout << "------------------------\n";
@@ -45,7 +31,7 @@ Color computeBestMove(GameState state, int maxDepth, TimeOut timeout) {
   auto bestChain = f.get();
   if (bestChain.empty()) {
     cout << "no moves. Probably timed out." << endl;
-    return SENTINAL;
+    return Color::NONE;
   }
   for (auto it = bestChain.rbegin(); it != bestChain.rend() - 1; ++it) {
     auto [thisScore, thisMove, thisNewState] = *it;
@@ -62,14 +48,38 @@ Color computeBestMove(GameState state, int maxDepth, TimeOut timeout) {
   return move;
 }
 
+void selfCheck() {
+  cout << "Selfcheck (VALID MASK):" << endl;
+  cout << print_mask(board::VALID_MASK(), true) << endl;
+  cout << print_mask(board::left(board::VALID_MASK()), true) << endl;
+  cout << print_mask(board::right(board::VALID_MASK()), true) << endl;
+  cout << print_mask(board::up(board::VALID_MASK()), true) << endl;
+  cout << print_mask(board::down(board::VALID_MASK()), true) << endl;
+
+  cout << "Selfcheck (CROSS):" << endl;
+  cout << print_mask(board::CROSS_MASK(), true) << endl;
+  cout << print_mask(board::left(board::CROSS_MASK()), true) << endl;
+  cout << print_mask(board::right(board::CROSS_MASK()), true) << endl;
+  cout << print_mask(board::up(board::CROSS_MASK()), true) << endl;
+  cout << print_mask(board::down(board::CROSS_MASK()), true) << endl;
+
+  cout << "Selfcheck (STARTS):" << endl;
+  cout << print_mask(PLAYER_START, true) << endl;
+  cout << print_mask(COMPUTER_START, true) << endl;
+
+  cout << endl;
+}
+
 int main() {
   try {
-    uniform_int_distribution colorDist(0, Color::SENTINAL - 1);
     char inChar;
-    board_c colors;
+    array<board_t, NUM_COLORS> colors;
     cout << "*********************" << endl;
     cout << "** GAME PIGEON HAX **" << endl;
     cout << "*********************" << endl;
+
+    // selfCheck();
+
     cout << "init with random game? ";
     cin >> inChar;
     if (tolower(inChar) == 'y') {
@@ -77,31 +87,9 @@ int main() {
       int randomSeed;
       cin >> randomSeed;
       default_random_engine rand(randomSeed);
-
-      for (int row = 0; row < BOARD_HEIGHT; ++row) {
-        for (int col = 0; col < BOARD_WIDTH; ++col) {
-          bool eqAdjLeft, eqAdjTop, isPlayerStartAndEqComputer;
-          Color randomColor;
-          do {
-            randomColor = static_cast<Color>(colorDist(rand));
-            eqAdjLeft = col > 0
-                            ? randomColor ==
-                                  colors[GameState::resolveCoord(row, col - 1)]
-                            : false;
-            eqAdjTop = row > 0
-                           ? randomColor ==
-                                 colors[GameState::resolveCoord(row - 1, col)]
-                           : false;
-            isPlayerStartAndEqComputer =
-                (row == BOARD_HEIGHT - 1 && col == 0)
-                    ? randomColor ==
-                          colors[GameState::resolveCoord(0, BOARD_WIDTH - 1)]
-                    : false;
-          } while (eqAdjLeft || eqAdjTop || isPlayerStartAndEqComputer);
-          colors[GameState::resolveCoord(row, col)] = randomColor;
-        }
-      }
+      colors = board::makeRandomBoard(rand);
     } else {
+      colors.fill(0);
       cout << "please enter the board row by row (Red Green Yellow Blue Purple "
               "bLack), top to bottom:"
            << endl;
@@ -113,10 +101,17 @@ int main() {
           throw "must type exactly " + to_string(BOARD_WIDTH) + " characters";
         }
         for (int col = 0; col < BOARD_WIDTH; ++col) {
-          colors[GameState::resolveCoord(row, col)] =
-              charToColor(toupper(rowStr[col]));
+          int pos = row * BOARD_WIDTH + col;
+          colors[charToColor(toupper(rowStr[col]))] |= (1ul << pos);
         }
       }
+    }
+    if (!board::isValidBoard(colors)) {
+      cerr << "Invalid board!\n" << endl;
+      for (int i = 0; i < NUM_COLORS; ++i)
+        cerr << colorToTermBg(static_cast<Color>(i)) << print_mask(colors[i])
+             << rang::bg::reset << endl;
+      throw "Invalid board!";
     }
 
     cout << "is it your turn? ";
@@ -125,14 +120,12 @@ int main() {
 
     // assume player is in bottom left corner and opponent is in top right
     // corner
-    Color playersColor = colors[GameState::resolveCoord(BOARD_HEIGHT - 1, 0)];
-    Color computerColor = colors[GameState::resolveCoord(0, BOARD_WIDTH - 1)];
+    Color playersColor = board::getColor(colors, PLAYER_START);
+    Color computerColor = board::getColor(colors, COMPUTER_START);
 
-    board_b playerBlob, computerBlob;
-    playerBlob.fill(false);
-    computerBlob.fill(false);
-    dfs(BOARD_HEIGHT - 1, 0, colors, playerBlob, playersColor);
-    dfs(0, BOARD_WIDTH - 1, colors, computerBlob, computerColor);
+    board_t playerBlob = board::expandBlob(PLAYER_START, colors[playersColor]);
+    board_t computerBlob =
+        board::expandBlob(COMPUTER_START, colors[computerColor]);
 
     GameState state(colors, playersTurn, playersColor, computerColor,
                     playerBlob, computerBlob);
@@ -146,29 +139,26 @@ int main() {
     cin >> inChar;
     bool playVsComputer = tolower(inChar) == 'y';
 
-    // cout << "Sanity check: next possible moves from provided state" << endl;
-    // for (auto move : state.genMoves()) {
-    //   cout << "Color: " << move.first << '.' << rang::bg::reset
-    //        << "board: " << endl
-    //        << move.second << endl;
-    // }
-
-    const int MAX_DEPTH = 12;
+    cout << "Sanity check: next possible moves from provided state" << endl;
+    for (auto move : state.genMoves()) {
+      cout << "Color: " << move.first << '.' << rang::bg::reset
+           << "board: " << endl
+           << move.second << endl;
+    }
 
     while (!state.isTerminal()) {
       if (!playVsComputer || !state.isPlayersTurn()) {
-        Color bestMove = SENTINAL;
+        Color bestMove = Color::NONE;
         for (int depth = 1;; ++depth) {
           auto thisMove =
               computeBestMove(state, depth, TimeOut(std::chrono::seconds(3)));
-          if (thisMove == SENTINAL)
+          if (thisMove == Color::NONE)
             break;
           bestMove = thisMove;
         }
-        if (bestMove == SENTINAL)
+        if (bestMove == Color::NONE)
           throw "could not calculate best move in time!";
 
-        // auto bestMove = computeBestMove(state, MAX_DEPTH);
         if (playVsComputer) {
           cout << "-- previous board --" << endl << state << endl;
           state = state.applyMove(bestMove);
@@ -185,15 +175,15 @@ int main() {
         try {
           colorChosen = charToColor(toupper(inChar));
         } catch (...) {
-          std::cerr << "Invalid color? Try one of (RGBYPL)" << endl;
+          cerr << "Invalid color? Try one of (RGBYPL)" << endl;
           continue;
         }
         if (std::find(possibleColors.begin(), possibleColors.end(),
                       colorChosen) != possibleColors.end())
           break;
-        std::cerr << "Cannot select that color. Are you or your opponent "
-                     "already that color?"
-                  << endl;
+        cerr << "Cannot select that color. Are you or your opponent "
+                "already that color?"
+             << endl;
       }
       state = state.applyMove(colorChosen);
     }
@@ -209,10 +199,10 @@ int main() {
     }
     return 0;
   } catch (string s) {
-    std::cerr << s << endl;
+    cerr << s << endl;
     return 1;
   } catch (const char *s) {
-    std::cerr << s << endl;
+    cerr << s << endl;
     return 1;
   }
 }

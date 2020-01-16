@@ -1,8 +1,11 @@
 #pragma once
 
-#include "Colors.hpp"
-#include "Constants.hpp"
+#include "board.hpp"
+#include "colors.hpp"
+#include "rang.hpp"
+#include <algorithm>
 #include <array>
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -12,36 +15,28 @@ using std::ostream;
 using std::pair;
 using std::vector;
 
-typedef array<bool, BOARD_SIZE> board_b;
-typedef array<Color, BOARD_SIZE> board_c;
-
 class GameState {
 private:
-  board_c board;
+  array<board_t, NUM_COLORS> board;
   bool playersTurn;
   Color playerColor;
   Color computerColor;
-  board_b playerBlob;
-  board_b computerBlob;
+  board_t playerBlob;
+  board_t computerBlob;
 
 public:
-  GameState(board_c board, bool playersTurn, Color playerColor,
-            Color computerColor, board_b playerBlob, board_b computerBlob);
+  GameState(array<board_t, NUM_COLORS> board, bool playersTurn,
+            Color playerColor, Color computerColor, board_t playerBlob,
+            board_t computerBlob);
   ~GameState();
 
   const vector<pair<Color, GameState>> genMoves() const;
   vector<Color> getPossibleColors() const;
   GameState applyMove(Color c) const;
-  const int getHeuristicValue() const;
-  const bool isTerminal() const;
-  const int getPlayerSize() const;
-  const int getComputerSize() const;
-  const bool isPlayersTurn() const;
-
-  static int resolveCoord(int row, int col) { return row * BOARD_WIDTH + col; }
-  static pair<int, int> unresolveCoord(int coord) {
-    return {coord / BOARD_WIDTH, coord % BOARD_WIDTH};
-  }
-
+  int getHeuristicValue() const;
+  bool isTerminal() const;
+  int getPlayerSize() const;
+  int getComputerSize() const;
+  bool isPlayersTurn() const;
   friend ostream &operator<<(ostream &os, const GameState &state);
 };
